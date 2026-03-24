@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Вхід — WAF System</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .login-box { background: #161b27; border: 1px solid #1e2738; border-radius: 12px; padding: 36px 32px; width: 360px; }
+  .logo { text-align: center; margin-bottom: 28px; }
+  .logo .icon { font-size: 40px; }
+  .logo h1 { font-size: 18px; font-weight: 700; color: #3b82f6; letter-spacing: 1px; text-transform: uppercase; margin-top: 8px; }
+  .logo p { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 5px; }
+  .form-control { width: 100%; background: #1e2738; border: 1px solid #2d3748; border-radius: 7px; color: #e2e8f0; padding: 10px 12px; font-size: 14px; }
+  .form-control:focus { outline: none; border-color: #3b82f6; }
+  .btn { width: 100%; padding: 11px; background: #3b82f6; color: #fff; border: none; border-radius: 7px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: opacity .15s; }
+  .btn:hover { opacity: .88; }
+  .error { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: #f87171; padding: 10px 13px; border-radius: 7px; font-size: 13px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="login-box">
+  <div class="logo">
+    <div class="icon">🛡</div>
+    <h1>WAF System</h1>
+    <p>ML-based Web Application Firewall</p>
+  </div>
+  {% if form.errors %}
+  <div class="error">Невірний логін або пароль.</div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <label>Логін</label>
+      <input type="text" name="username" class="form-control" autofocus required>
+    </div>
+    <div class="form-group">
+      <label>Пароль</label>
+      <input type="password" name="password" class="form-control" required>
+    </div>
+    <button type="submit" class="btn">Увійти</button>
+  </form>
+</div>
+</body>
+</html>

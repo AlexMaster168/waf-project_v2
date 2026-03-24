@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}WAF{% endblock %} — ML WAF System</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --card: #161b27; --border: #1e2738;
+    --text: #e2e8f0; --muted: #64748b; --sub: #94a3b8;
+    --blue: #3b82f6; --red: #ef4444; --green: #22c55e;
+    --yellow: #f59e0b; --purple: #8b5cf6; --cyan: #06b6d4;
+  }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .sidebar {
+    width: 220px; position: fixed; top: 0; left: 0; height: 100vh;
+    background: var(--card); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; z-index: 100;
+  }
+  .sidebar-logo { padding: 18px 16px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo .t { color: var(--blue); font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .sidebar-logo .s { color: var(--muted); font-size: 11px; margin-top: 3px; }
+  .nav { padding: 10px 0; flex: 1; }
+  .nav a {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 16px; color: var(--sub); text-decoration: none;
+    font-size: 13px; border-left: 3px solid transparent; transition: all .15s;
+    position: relative;
+  }
+  .nav a:hover  { color: var(--text); background: rgba(30,39,56,.7); }
+  .nav a.active { color: var(--text); background: rgba(59,130,246,.12); border-left-color: var(--blue); }
+  .nav .badge-dot {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: var(--red); color: #fff; border-radius: 10px;
+    font-size: 10px; font-weight: 700; padding: 1px 5px; min-width: 18px; text-align: center;
+  }
+  .main { margin-left: 220px; padding: 26px; min-height: 100vh; }
+  .page-hdr { margin-bottom: 22px; display: flex; align-items: flex-start; justify-content: space-between; }
+  .page-hdr h1 { font-size: 21px; font-weight: 600; }
+  .page-hdr p  { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--sub); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 14px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 13px; margin-bottom: 20px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .stat-card .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .stat-card .val { font-size: 28px; font-weight: 700; line-height: 1; }
+  .stat-card .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin-bottom: 20px; }
+  .tbl-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 9px 13px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .4px; background: #0c0f17; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 9px 13px; border-bottom: 1px solid var(--border); color: #cbd5e1; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(30,39,56,.5); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-sqli  { background: #431407; color: #fb923c; }
+  .badge-xss   { background: #052e16; color: #4ade80; }
+  .badge-path_traversal { background: #1e1b4b; color: #a5b4fc; }
+  .badge-rce   { background: #500724; color: #f9a8d4; }
+  .badge-ddos  { background: #450a0a; color: #fca5a5; }
+  .badge-ssrf  { background: #0c3a4a; color: #67e8f9; }
+  .badge-xxe   { background: #2e1065; color: #c4b5fd; }
+  .badge-csrf  { background: #082f49; color: #7dd3fc; }
+  .badge-ok    { background: #052e16; color: #4ade80; }
+  .badge-blocked { background: #450a0a; color: #fca5a5; }
+  .badge-critical { background: #450a0a; color: #fca5a5; }
+  .badge-warning  { background: #431407; color: #fdba74; }
+  .badge-info     { background: #082f49; color: #93c5fd; }
+  .method { font-family: monospace; font-size: 12px; font-weight: 700; }
+  .m-GET { color: #4ade80; } .m-POST { color: #60a5fa; }
+  .m-PUT { color: #fbbf24; } .m-DELETE { color: #f87171; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .dot-blocked { background: var(--red); } .dot-suspicious { background: var(--yellow); }
+  .dot-clean { background: var(--green); } .dot-whitelisted { background: var(--blue); }
+  .sbar-wrap { display: flex; align-items: center; gap: 6px; }
+  .sbar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; min-width: 50px; }
+  .sbar-fill { height: 100%; border-radius: 3px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 15px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; border: none; transition: opacity .15s; }
+  .btn:hover { opacity: .82; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-danger  { background: transparent; border: 1px solid var(--red); color: var(--red); }
+  .btn-success { background: transparent; border: 1px solid var(--green); color: var(--green); }
+  .btn-warning { background: transparent; border: 1px solid var(--yellow); color: var(--yellow); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; border-radius: 5px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+  .ftab { padding: 5px 13px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--sub); text-decoration: none; font-size: 12px; transition: all .15s; }
+  .ftab:hover { border-color: var(--blue); color: var(--text); }
+  .ftab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .mono { font-family: 'Courier New', monospace; font-size: 12px; }
+  .payload { font-family: monospace; font-size: 11px; color: #fbbf24; background: #1a1400; padding: 2px 7px; border-radius: 4px; display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; color: var(--sub); margin-bottom: 5px; }
+  .form-control { width: 100%; background: var(--border); border: 1px solid #2d3748; border-radius: 6px; color: var(--text); padding: 8px 11px; font-size: 13px; }
+  .form-control:focus { outline: none; border-color: var(--blue); }
+  select.form-control option { background: var(--card); }
+  .alert-box { padding: 11px 14px; border-radius: 7px; margin-bottom: 14px; font-size: 13px; }
+  .alert-box.success { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: #4ade80; }
+  .alert-box.error   { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: #f87171; }
+  .alert-box.warning { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.3); color: #fbbf24; }
+  .c-blue { color: var(--blue); } .c-red { color: var(--red); }
+  .c-green { color: var(--green); } .c-yellow { color: var(--yellow); }
+  .c-purple { color: var(--purple); }
+</style>
+</head>
+<body>
+{% with new_alerts=request.user.is_authenticated|yesno:"," %}
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="t">🛡 WAF System</div>
+    <div class="s">ML-based Protection</div>
+  </div>
+  <div class="nav">
+    <a href="{% url 'dashboard' %}"   class="{% block nav_dash %}{% endblock %}">📊 Dashboard</a>
+    <a href="{% url 'requests' %}"    class="{% block nav_req  %}{% endblock %}">🌐 HTTP Запити</a>
+    <a href="{% url 'attacks' %}"     class="{% block nav_atk  %}{% endblock %}">⚠️ Атаки</a>
+    <a href="{% url 'alerts' %}"      class="{% block nav_ale  %}{% endblock %}">
+      🔔 Алерти
+      {% block alert_badge %}{% endblock %}
+    </a>
+    <a href="{% url 'exceptions' %}"  class="{% block nav_exc  %}{% endblock %}">🛡 Винятки WAF</a>
+    <a href="{% url 'ip' %}"          class="{% block nav_ip   %}{% endblock %}">🔍 IP Репутація</a>
+    <a href="{% url 'ml' %}"          class="{% block nav_ml   %}{% endblock %}">🤖 ML Моделі</a>
+    <a href="/admin/">⚙️ Адмін</a>
+  </div>
+</nav>
+{% endwith %}
+<main class="main">
+  {% for m in messages %}
+  <div class="alert-box {% if m.tags == 'error' %}error{% elif m.tags == 'warning' %}warning{% else %}success{% endif %}">{{ m }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

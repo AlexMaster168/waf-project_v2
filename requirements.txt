@@ -1,0 +1,15 @@
+Django
+djangorestframework
+psycopg2-binary
+numpy
+pandas
+matplotlib
+scikit-learn
+xgboost
+imbalanced-learn
+joblib
+python-dotenv
+django-cors-headers
+whitenoise
+kaggle
+requests

@@ -1,0 +1,121 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block nav_dash %}active{% endblock %}
+{% block alert_badge %}{% if new_alerts_count %}<span class="badge-dot">{{ new_alerts_count }}</span>{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-hdr">
+  <div>
+    <h1>🛡 WAF Dashboard</h1>
+    <p>Моніторинг HTTP-трафіку та виявлення атак у реальному часі — ML WAF v2</p>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="lbl">Запити (24г)</div>
+    <div class="val c-blue">{{ total_requests }}</div>
+    <div class="hint">загальна кількість</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Заблоковано (24г)</div>
+    <div class="val c-red">{{ blocked_requests }}</div>
+    <div class="hint">{% if total_requests %}{{ blocked_requests }}/{{ total_requests }}{% else %}немає трафіку{% endif %}</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Атаки (24г)</div>
+    <div class="val c-yellow">{{ total_attacks }}</div>
+    <div class="hint">всі типи</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Атакуючих IP</div>
+    <div class="val c-red">{{ unique_attackers }}</div>
+    <div class="hint">унікальні адреси</div>
+  </div>
+  <div class="stat-card">
+    <div class="lbl">Нові алерти</div>
+    <div class="val c-purple">{{ new_alerts_count }}</div>
+    <div class="hint"><a href="{% url 'alerts' %}" style="color:var(--blue);text-decoration:none">переглянути →</a></div>
+  </div>
+</div>
+
+<div class="cols2">
+  <div class="card">
+    <div class="card-title">Останні атаки</div>
+    {% for a in recent_attacks %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+        <span class="badge badge-{{ a.attack_type.code }}">{{ a.attack_type.code|upper }}</span>
+        <span class="mono" style="color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;" title="{{ a.request.path }}">{{ a.request.path }}</span>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px;">
+        <div class="mono" style="font-size:11px;color:var(--muted);">{{ a.request.client_ip }}</div>
+        <div class="sbar-wrap" style="justify-content:flex-end;margin-top:3px;">
+          <div class="sbar" style="width:60px;"><div class="sbar-fill" style="width:{% widthratio a.confidence_score 1 100 %}%;background:var(--red);"></div></div>
+          <span style="font-size:10px;color:var(--muted);">{{ a.confidence_score|floatformat:2 }}</span>
+        </div>
+      </div>
+    </div>
+    {% empty %}<p style="color:var(--muted);font-size:13px;padding:8px 0;">Атак не виявлено</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Нові алерти</div>
+    {% for a in new_alerts %}
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="min-width:0;">
+        <span class="badge badge-{{ a.level }}">{{ a.get_level_display }}</span>
+        <span style="margin-left:7px;font-size:12px;color:var(--text);">{{ a.title|truncatechars:50 }}</span>
+        {% if a.client_ip %}<div class="mono" style="font-size:10px;color:var(--muted);margin-top:2px;">{{ a.client_ip }}</div>{% endif %}
+      </div>
+      <span style="font-size:10px;color:var(--muted);white-space:nowrap;margin-left:8px;">{{ a.created_at|date:"H:i" }}</span>
+    </div>
+    {% empty %}<p style="color:var(--muted);font-size:13px;padding:8px 0;">Нових алертів немає</p>
+    {% endfor %}
+    {% if new_alerts_count %}<a href="{% url 'alerts' %}" style="display:block;text-align:center;margin-top:10px;font-size:12px;color:var(--blue);">Переглянути всі →</a>{% endif %}
+  </div>
+</div>
+
+<div class="cols2">
+  <div class="card">
+    <div class="card-title">Топ атакуючих IP</div>
+    <table>
+      <thead><tr><th>IP</th><th>Атаки</th><th>Запити</th><th>Статус</th></tr></thead>
+      <tbody>
+        {% for ip in top_ips %}
+        <tr>
+          <td class="mono">{{ ip.ip_address }}</td>
+          <td style="color:var(--red);font-weight:600;">{{ ip.attack_count }}</td>
+          <td style="color:var(--muted);">{{ ip.request_count }}</td>
+          <td><span class="dot dot-{{ ip.status }}"></span>{{ ip.get_status_display }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="4" style="color:var(--muted);">Немає даних</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">ML Моделі (активні)</div>
+    {% if ml_models %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      {% for m in ml_models %}
+      <div style="background:var(--border);border-radius:7px;padding:11px;">
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px;">{{ m.model_name }}</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:7px;">{{ m.attack_type|upper }}</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:var(--sub);">F1</span><span style="color:var(--blue);font-weight:600;">{{ m.f1_score|floatformat:3 }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:var(--sub);">AUC</span><span style="color:var(--green);font-weight:600;">{{ m.auc_roc|floatformat:3 }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:var(--muted);font-size:13px;">Запустіть: <code style="color:var(--blue);background:var(--border);padding:2px 6px;border-radius:4px;">python manage.py train_models</code></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.env
+*.sqlite3
+staticfiles/
+ml_engine/saved_models/*.pkl
+ml_engine/saved_models/*.json
+data_processing/datasets/
+static/ml_plots/*.png
+static/analytics/*.png
+logs/*.log
+venv/
+.venv/
+.DS_Store
+.idea/
