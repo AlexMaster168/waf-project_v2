@@ -3,43 +3,74 @@
 {% block nav_ip %}active{% endblock %}
 
 {% block content %}
-<div class="page-hdr"><div><h1>🔍 IP Репутація</h1><p>Аналіз та управління репутацією IP-адрес</p></div></div>
-<div class="tbl-wrap">
-  <table>
-    <thead><tr><th>IP Адреса</th><th>Статус</th><th>Запити</th><th>Атаки</th><th>% атак</th><th>Перший раз</th><th>Останній раз</th><th>Дії</th></tr></thead>
-    <tbody>
-      {% for ip in ips %}
-      <tr>
-        <td class="mono" style="font-weight:600;">{{ ip.ip_address }}</td>
-        <td><span class="dot dot-{{ ip.status }}"></span>{{ ip.get_status_display }}</td>
-        <td style="color:var(--sub);">{{ ip.request_count }}</td>
-        <td style="color:{% if ip.attack_count > 0 %}var(--red){% else %}var(--green){% endif %};font-weight:600;">{{ ip.attack_count }}</td>
-        <td>
-          {% if ip.request_count > 0 %}
-          <div class="sbar-wrap">
-            <div class="sbar" style="width:70px;"><div class="sbar-fill" style="width:{% widthratio ip.attack_count ip.request_count 100 %}%;background:var(--red);"></div></div>
-            <span style="font-size:11px;color:var(--muted);">{% widthratio ip.attack_count ip.request_count 100 %}%</span>
-          </div>
-          {% else %}—{% endif %}
-        </td>
-        <td style="font-size:11px;color:var(--muted);">{{ ip.first_seen|date:"d.m.Y" }}</td>
-        <td style="font-size:11px;color:var(--muted);">{{ ip.last_seen|date:"d.m H:i" }}</td>
-        <td>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;">
-            {% if ip.status != 'blocked' %}
-            <a href="/api/v1/ip/{{ ip.id }}/block/" class="btn btn-danger btn-sm">⛔ Блок</a>
-            {% else %}
-            <a href="/api/v1/ip/{{ ip.id }}/unblock/" class="btn btn-success btn-sm">✓ Розблок</a>
-            {% endif %}
-            {% if ip.status != 'whitelisted' %}
-            <a href="/api/v1/ip/{{ ip.id }}/whitelist/" class="btn btn-warning btn-sm">✓ Whitelist</a>
-            {% endif %}
-          </div>
-        </td>
-      </tr>
-      {% empty %}<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px;">Немає даних</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+    <div class="page-hdr">
+        <div><h1>🔍 IP Репутація</h1>
+            <p style="font-size:16px;">Аналіз та управління репутацією IP-адрес</p></div>
+        <form method="post" onsubmit="return confirm('Ви впевнені, що хочете очистити всю історію IP?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="clear">
+            <button type="submit" class="btn btn-danger" style="font-size:14px;">🗑 Очистити всі</button>
+        </form>
+    </div>
+    <div class="tbl-wrap">
+        <table style="font-size:14px;">
+            <thead>
+            <tr>
+                <th>IP Адреса</th>
+                <th>Статус</th>
+                <th>Запити</th>
+                <th>Атаки</th>
+                <th>% атак</th>
+                <th>Перший раз</th>
+                <th>Останній раз</th>
+                <th>Дії</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for ip in ips %}
+                <tr>
+                    <td class="mono" style="font-weight:600;font-size:15px;">{{ ip.ip_address }}</td>
+                    <td><span class="dot dot-{{ ip.status }}"></span><span
+                            style="font-size:14px;">{{ ip.get_status_display }}</span></td>
+                    <td style="color:var(--sub);font-size:15px;">{{ ip.request_count }}</td>
+                    <td style="color:{% if ip.attack_count > 0 %}var(--red){% else %}var(--green){% endif %};font-weight:600;font-size:15px;">{{ ip.attack_count }}</td>
+                    <td>
+                        {% if ip.request_count > 0 %}
+                            <div class="sbar-wrap">
+                                <div class="sbar" style="width:70px;">
+                                    <div class="sbar-fill"
+                                         style="width:{% widthratio ip.attack_count ip.request_count 100 %}%;background:var(--red);"></div>
+                                </div>
+                                <span style="color:var(--muted);">{% widthratio ip.attack_count ip.request_count 100 %}%</span>
+                            </div>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td style="color:var(--muted);">{{ ip.first_seen|date:"d.m.Y" }}</td>
+                    <td style="color:var(--muted);">{{ ip.last_seen|date:"d.m H:i" }}</td>
+                    <td>
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                            {% if ip.status != 'blocked' %}
+                                <a href="/api/v1/ip/{{ ip.id }}/block/" class="btn btn-danger btn-sm"
+                                   style="font-size:13px;">⛔ Блок</a>
+                            {% else %}
+                                <a href="/api/v1/ip/{{ ip.id }}/unblock/" class="btn btn-success btn-sm"
+                                   style="font-size:13px;">✓ Розблок</a>
+                            {% endif %}
+                            {% if ip.status != 'whitelisted' %}
+                                <a href="/api/v1/ip/{{ ip.id }}/whitelist/" class="btn btn-warning btn-sm"
+                                   style="font-size:13px;">✓ Whitelist</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center;color:var(--muted);padding:28px;font-size:16px;">Немає
+                        даних
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

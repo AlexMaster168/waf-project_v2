@@ -3,32 +3,63 @@
 {% block nav_req %}active{% endblock %}
 
 {% block content %}
-<div class="page-hdr"><div><h1>🌐 HTTP Запити</h1><p>Останні 200 запитів</p></div></div>
-<div class="filters">
-  <a href="{% url 'requests' %}" class="ftab {% if not filter %}active{% endif %}">Всі</a>
-  <a href="{% url 'requests' %}?is_blocked=true" class="ftab {% if filter == 'true' %}active{% endif %}">⛔ Заблоковані</a>
-  <a href="{% url 'requests' %}?is_blocked=false" class="ftab {% if filter == 'false' %}active{% endif %}">✓ Дозволені</a>
-</div>
-<div class="tbl-wrap">
-  <table>
-    <thead><tr><th>Час</th><th>Метод</th><th>Шлях</th><th>IP</th><th>Статус</th><th>Причина</th><th>Код</th><th>мс</th></tr></thead>
-    <tbody>
-      {% for r in requests %}
-      <tr>
-        <td style="white-space:nowrap;font-size:11px;color:var(--muted);">{{ r.timestamp|date:"d.m H:i:s" }}</td>
-        <td><span class="method m-{{ r.method }}">{{ r.method }}</span></td>
-        <td class="mono" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ r.path }}{% if r.query_string %}?{{ r.query_string }}{% endif %}">
-          {{ r.path }}{% if r.query_string %}<span style="color:var(--muted);">?{{ r.query_string|truncatechars:40 }}</span>{% endif %}
-        </td>
-        <td class="mono" style="white-space:nowrap;">{{ r.client_ip }}</td>
-        <td>{% if r.is_blocked %}<span class="badge badge-blocked">⛔ Blocked</span>{% else %}<span class="badge badge-ok">✓ OK</span>{% endif %}</td>
-        <td style="font-size:11px;color:var(--muted);">{{ r.block_reason|default:"—" }}</td>
-        <td style="color:var(--muted);">{{ r.response_status|default:"—" }}</td>
-        <td style="font-size:11px;color:var(--muted);">{{ r.processing_time_ms|floatformat:1 }}</td>
-      </tr>
-      {% empty %}<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px;">Запитів немає</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+    <div class="page-hdr">
+        <div><h1>🌐 HTTP Запити</h1>
+            <p style="font-size:16px;">Останні 200 запитів</p></div>
+        <form method="post" onsubmit="return confirm('Ви впевнені, що хочете очистити всі запити?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="clear">
+            <button type="submit" class="btn btn-danger" style="font-size:14px;">🗑 Очистити всі</button>
+        </form>
+    </div>
+    <div class="filters">
+        <a href="{% url 'requests' %}" class="ftab {% if not filter %}active{% endif %}" style="font-size:15px;">Всі</a>
+        <a href="{% url 'requests' %}?is_blocked=true" class="ftab {% if filter == 'true' %}active{% endif %}"
+           style="font-size:15px;">⛔ Заблоковані</a>
+        <a href="{% url 'requests' %}?is_blocked=false" class="ftab {% if filter == 'false' %}active{% endif %}"
+           style="font-size:15px;">✓ Дозволені</a>
+    </div>
+    <div class="tbl-wrap">
+        <table style="font-size:14px;">
+            <thead>
+            <tr>
+                <th>Час</th>
+                <th>Метод</th>
+                <th>Шлях</th>
+                <th>IP</th>
+                <th>Статус</th>
+                <th>Причина</th>
+                <th>Код</th>
+                <th>мс</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in requests %}
+                <tr>
+                    <td style="white-space:nowrap;color:var(--muted);">{{ r.timestamp|date:"d.m H:i:s" }}</td>
+                    <td><span class="method m-{{ r.method }}" style="font-size:14px;">{{ r.method }}</span></td>
+                    <td class="mono"
+                        style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;"
+                        title="{{ r.path }}{% if r.query_string %}?{{ r.query_string }}{% endif %}">
+                        {{ r.path }}{% if r.query_string %}
+                            <span style="color:var(--muted);">?{{ r.query_string|truncatechars:40 }}</span>{% endif %}
+                    </td>
+                    <td class="mono" style="white-space:nowrap;font-size:14px;">{{ r.client_ip }}</td>
+                    <td>{% if r.is_blocked %}
+                        <span class="badge badge-blocked" style="font-size:13px;">⛔ Blocked</span>{% else %}
+                        <span class="badge badge-ok" style="font-size:13px;">✓ OK</span>{% endif %}</td>
+                    <td style="color:var(--muted);">{{ r.block_reason|default:"—" }}</td>
+                    <td style="color:var(--muted);">{{ r.response_status|default:"—" }}</td>
+                    <td style="color:var(--muted);">{{ r.processing_time_ms|floatformat:1 }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center;color:var(--muted);padding:28px;font-size:16px;">Запитів
+                        немає
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

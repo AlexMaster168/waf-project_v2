@@ -37,6 +37,17 @@ class MLPredictor:
         self.load()
         X = features.reshape(1, -1)
         results = {}
+
+        sigs = {
+            'sqli': X[0, 23] + X[0, 24],
+            'xss': X[0, 25] + X[0, 26],
+            'path_traversal': X[0, 27] + X[0, 28] + X[0, 29],
+            'rce': X[0, 30] + X[0, 31] + X[0, 32] + X[0, 33],
+            'ssrf': X[0, 34] + X[0, 35] + X[0, 36],
+            'xxe': X[0, 37] + X[0, 38] + X[0, 39],
+            'ddos': X[0, 45] + X[0, 46] + X[0, 47] + X[0, 48] + X[0, 49],
+        }
+
         for attack_type, model in self.models.items():
             try:
                 Xs = self.scalers[attack_type].transform(X)
@@ -45,10 +56,21 @@ class MLPredictor:
                     score = float(prob[1]) if len(prob) > 1 else float(prob[0])
                 else:
                     score = float(model.predict(Xs)[0])
+
+                my_sig = sigs.get(attack_type, 0)
+                other_sigs = sum(v for k, v in sigs.items() if k != attack_type)
+
+                if my_sig > 0:
+                    score = min(0.99, score + 0.4)
+
+                if my_sig == 0 and other_sigs > 0:
+                    score = score * 0.2
+
                 results[attack_type] = score
             except Exception as e:
                 logger.error(f'Predict [{attack_type}]: {e}')
                 results[attack_type] = 0.0
+
         return results
 
     def reload(self):

@@ -1,94 +1,129 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load custom_filters %}
+
 {% block title %}ML Моделі{% endblock %}
 {% block nav_ml %}active{% endblock %}
 
 {% block content %}
-<div class="page-hdr">
-  <div><h1>🤖 ML Моделі</h1><p>Метрики навчання та порівняння моделей детектування атак</p></div>
-  <a href="/api/v1/ml-models/retrain/" class="btn btn-primary">🔄 Перенавчити</a>
-</div>
-
-{% if metrics %}
-<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:13px;margin-bottom:22px;">
-  {% for m in metrics %}
-  <div class="card" style="padding:15px;">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px;">
-      <div>
-        <div style="font-size:14px;font-weight:600;">{{ m.model_name }}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;">{{ m.attack_type|upper }} · v{{ m.version }}</div>
-      </div>
-      {% if m.is_active %}<span class="badge badge-ok">★ Активна</span>{% else %}<span style="background:var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;font-size:11px;">Архів</span>{% endif %}
+    <div class="page-hdr">
+        <div><h1>🤖 ML Моделі</h1>
+            <p style="font-size:16px;">Метрики навчання та порівняння моделей детектування атак</p></div>
+        <div style="display:flex;gap:10px;">
+            <a href="/api/v1/ml-models/retrain/" class="btn btn-primary" style="font-size:14px;">🔄 Перенавчити</a>
+            <form method="post" onsubmit="return confirm('Ви впевнені, що хочете очистити всі метрики моделей?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear">
+                <button type="submit" class="btn btn-danger" style="font-size:14px;">🗑 Очистити</button>
+            </form>
+        </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
-      {% for label, val, color in "F1 Score,f1_score,blue|AUC-ROC,auc_roc,green|Precision,precision,sub|Recall,recall,sub"|split:"|" %}{% endfor %}
-      <div style="background:var(--border);border-radius:6px;padding:9px;text-align:center;">
-        <div style="font-size:19px;font-weight:700;{% if m.f1_score >= 0.9 %}color:var(--green){% elif m.f1_score >= 0.7 %}color:var(--yellow){% else %}color:var(--red){% endif %};">{{ m.f1_score|floatformat:3 }}</div>
-        <div style="font-size:10px;color:var(--muted);">F1 SCORE</div>
-      </div>
-      <div style="background:var(--border);border-radius:6px;padding:9px;text-align:center;">
-        <div style="font-size:19px;font-weight:700;{% if m.auc_roc >= 0.95 %}color:var(--green){% elif m.auc_roc >= 0.8 %}color:var(--yellow){% else %}color:var(--red){% endif %};">{{ m.auc_roc|floatformat:3 }}</div>
-        <div style="font-size:10px;color:var(--muted);">AUC-ROC</div>
-      </div>
-      <div style="background:var(--border);border-radius:6px;padding:9px;text-align:center;">
-        <div style="font-size:19px;font-weight:700;color:var(--sub);">{{ m.precision|floatformat:3 }}</div>
-        <div style="font-size:10px;color:var(--muted);">PRECISION</div>
-      </div>
-      <div style="background:var(--border);border-radius:6px;padding:9px;text-align:center;">
-        <div style="font-size:19px;font-weight:700;color:var(--sub);">{{ m.recall|floatformat:3 }}</div>
-        <div style="font-size:10px;color:var(--muted);">RECALL</div>
-      </div>
-    </div>
-    <div style="margin-top:9px;font-size:11px;color:var(--muted);">Acc={{ m.accuracy|floatformat:3 }} · Test={{ m.test_samples }} · {{ m.trained_at|date:"d.m.Y H:i" }}</div>
-  </div>
-  {% endfor %}
-</div>
 
-<div class="tbl-wrap" style="margin-bottom:22px;">
-  <table>
-    <thead><tr><th>Модель</th><th>Тип атаки</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>AUC-ROC</th><th>Test</th><th>Дата</th></tr></thead>
-    <tbody>
-      {% for m in metrics %}
-      <tr>
-        <td style="font-weight:600;">{{ m.model_name }}</td>
-        <td><span style="background:var(--border);color:var(--sub);padding:2px 7px;border-radius:4px;font-size:11px;">{{ m.attack_type|upper }}</span></td>
-        <td>{{ m.accuracy|floatformat:4 }}</td>
-        <td>{{ m.precision|floatformat:4 }}</td>
-        <td>{{ m.recall|floatformat:4 }}</td>
-        <td style="color:var(--blue);font-weight:600;">{{ m.f1_score|floatformat:4 }}</td>
-        <td style="color:var(--green);font-weight:600;">{{ m.auc_roc|floatformat:4 }}</td>
-        <td style="color:var(--muted);">{{ m.test_samples }}</td>
-        <td style="font-size:11px;color:var(--muted);">{{ m.trained_at|date:"d.m.Y" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+    {% if metrics %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:13px;margin-bottom:22px;">
+            {% for m in metrics %}
+                <div class="card" style="padding:15px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:11px;">
+                        <div>
+                            <div style="font-size:16px;font-weight:600;">{{ m.model_name }}</div>
+                            <div style="font-size:14px;color:var(--muted);margin-top:4px;">{{ m.attack_type|upper }} ·
+                                v{{ m.version }}</div>
+                        </div>
+                        {% if m.is_active %}
+                            <span class="badge badge-ok" style="font-size:13px;">★ Активна</span>{% else %}
+                            <span style="background:var(--border);color:var(--muted);padding:3px 8px;border-radius:4px;font-size:13px;">Архів</span>{% endif %}
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+                        <div style="background:var(--border);border-radius:6px;padding:12px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;{% if m.f1_score >= 0.9 %}color:var(--green){% elif m.f1_score >= 0.7 %}color:var(--yellow){% else %}color:var(--red){% endif %};">{{ m.f1_score|floatformat:3 }}</div>
+                            <div style="font-size:12px;color:var(--muted);margin-top:4px;">F1 SCORE</div>
+                        </div>
+                        <div style="background:var(--border);border-radius:6px;padding:12px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;{% if m.auc_roc >= 0.95 %}color:var(--green){% elif m.auc_roc >= 0.8 %}color:var(--yellow){% else %}color:var(--red){% endif %};">{{ m.auc_roc|floatformat:3 }}</div>
+                            <div style="font-size:12px;color:var(--muted);margin-top:4px;">AUC-ROC</div>
+                        </div>
+                        <div style="background:var(--border);border-radius:6px;padding:12px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:var(--sub);">{{ m.precision|floatformat:3 }}</div>
+                            <div style="font-size:12px;color:var(--muted);margin-top:4px;">PRECISION</div>
+                        </div>
+                        <div style="background:var(--border);border-radius:6px;padding:12px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:var(--sub);">{{ m.recall|floatformat:3 }}</div>
+                            <div style="font-size:12px;color:var(--muted);margin-top:4px;">RECALL</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:12px;font-size:14px;color:var(--muted);">Acc={{ m.accuracy|floatformat:3 }} ·
+                        Test={{ m.test_samples }} · {{ m.trained_at|date:"d.m.Y H:i" }}</div>
+                </div>
+            {% endfor %}
+        </div>
 
-<div class="card">
-  <div class="card-title">Графіки навчання</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;">
-    {% for code in "sqli,xss,path_traversal,rce,ddos,ssrf,xxe"|split:"," %}
-    <div style="background:var(--border);border-radius:8px;overflow:hidden;">
-      <div style="padding:9px 13px;font-size:11px;color:var(--sub);border-bottom:1px solid var(--bg);">ROC / PR — {{ code|upper }}</div>
-      <img src="{% static 'ml_plots/' %}{{ code }}_roc_pr.png" alt="{{ code }}" style="width:100%;display:block;" onerror="this.parentElement.innerHTML+='<p style=padding:20px;color:var(--muted);font-size:12px;text-align:center>Ще не згенеровано</p>';this.remove();">
-    </div>
-    {% endfor %}
-    <div style="background:var(--border);border-radius:8px;overflow:hidden;grid-column:span 2;">
-      <div style="padding:9px 13px;font-size:11px;color:var(--sub);border-bottom:1px solid var(--bg);">Порівняння всіх моделей</div>
-      <img src="{% static 'ml_plots/comparison.png' %}" alt="Comparison" style="width:100%;display:block;" onerror="this.parentElement.innerHTML+='<p style=padding:20px;color:var(--muted);font-size:12px;text-align:center>Ще не згенеровано</p>';this.remove();">
-    </div>
-  </div>
-</div>
+        <div class="tbl-wrap" style="margin-bottom:22px;">
+            <table style="font-size:14px;">
+                <thead>
+                <tr>
+                    <th>Модель</th>
+                    <th>Тип атаки</th>
+                    <th>Accuracy</th>
+                    <th>Precision</th>
+                    <th>Recall</th>
+                    <th>F1</th>
+                    <th>AUC-ROC</th>
+                    <th>Test</th>
+                    <th>Дата</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for m in metrics %}
+                    <tr>
+                        <td style="font-weight:600;font-size:15px;">{{ m.model_name }}</td>
+                        <td><span
+                                style="background:var(--border);color:var(--sub);padding:3px 8px;border-radius:4px;font-size:13px;">{{ m.attack_type|upper }}</span>
+                        </td>
+                        <td>{{ m.accuracy|floatformat:4 }}</td>
+                        <td>{{ m.precision|floatformat:4 }}</td>
+                        <td>{{ m.recall|floatformat:4 }}</td>
+                        <td style="color:var(--blue);font-weight:600;font-size:15px;">{{ m.f1_score|floatformat:4 }}</td>
+                        <td style="color:var(--green);font-weight:600;font-size:15px;">{{ m.auc_roc|floatformat:4 }}</td>
+                        <td style="color:var(--muted);">{{ m.test_samples }}</td>
+                        <td style="color:var(--muted);">{{ m.trained_at|date:"d.m.Y" }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-{% else %}
-<div class="card">
-  <p style="color:var(--muted);font-size:14px;line-height:1.9;">
-    Моделі не навчені.<br>
-    <code style="color:var(--blue);background:var(--border);padding:3px 8px;border-radius:5px;">python manage.py train_models --download</code><br>
-    або без завантаження Kaggle:<br>
-    <code style="color:var(--blue);background:var(--border);padding:3px 8px;border-radius:5px;">python manage.py train_models</code>
-  </p>
-</div>
-{% endif %}
+        <div class="card">
+            <div class="card-title" style="font-size:18px;">Графіки навчання</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:13px;">
+                {% for code in "sqli,xss,path_traversal,rce,ddos,ssrf,xxe"|split:"," %}
+                    <div style="background:var(--border);border-radius:8px;overflow:hidden;">
+                        <div style="padding:12px 15px;font-size:14px;color:var(--sub);border-bottom:1px solid var(--bg);">
+                            ROC / PR — {{ code|upper }}</div>
+                        <img src="{% static 'ml_plots/' %}{{ code }}_roc_pr.png" alt="{{ code }}"
+                             style="width:100%;display:block;"
+                             onerror="this.parentElement.innerHTML+='<p style=padding:20px;color:var(--muted);font-size:14px;text-align:center>Ще не згенеровано</p>';this.remove();">
+                    </div>
+                {% endfor %}
+                <div style="background:var(--border);border-radius:8px;overflow:hidden;grid-column:span 2;">
+                    <div style="padding:12px 15px;font-size:14px;color:var(--sub);border-bottom:1px solid var(--bg);">
+                        Порівняння всіх моделей
+                    </div>
+                    <img src="{% static 'ml_plots/comparison.png' %}" alt="Comparison" style="width:100%;display:block;"
+                         onerror="this.parentElement.innerHTML+='<p style=padding:20px;color:var(--muted);font-size:14px;text-align:center>Ще не згенеровано</p>';this.remove();">
+                </div>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="card">
+            <p style="color:var(--muted);font-size:16px;line-height:1.9;">
+                Моделі не навчені.<br>
+                <code style="color:var(--blue);background:var(--border);padding:4px 10px;border-radius:5px;font-size:15px;">python
+                    manage.py train_models --download</code><br>
+                або без завантаження Kaggle:<br>
+                <code style="color:var(--blue);background:var(--border);padding:4px 10px;border-radius:5px;font-size:15px;">python
+                    manage.py train_models</code>
+            </p>
+        </div>
+    {% endif %}
 {% endblock %}

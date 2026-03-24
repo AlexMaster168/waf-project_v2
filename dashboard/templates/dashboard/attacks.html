@@ -3,35 +3,67 @@
 {% block nav_atk %}active{% endblock %}
 
 {% block content %}
-<div class="page-hdr"><div><h1>⚠️ Виявлені атаки</h1><p>Класифіковані загрози з оцінкою впевненості ML</p></div></div>
-<div class="filters">
-  <a href="{% url 'attacks' %}" class="ftab {% if not selected %}active{% endif %}">Всі</a>
-  {% for at in attack_types %}
-  <a href="{% url 'attacks' %}?type={{ at.code }}" class="ftab {% if selected == at.code %}active{% endif %}">{{ at.name }}</a>
-  {% endfor %}
-</div>
-<div class="tbl-wrap">
-  <table>
-    <thead><tr><th>Час</th><th>Тип</th><th>Шлях</th><th>IP</th><th>Payload</th><th>Впевненість</th><th>Метод</th></tr></thead>
-    <tbody>
-      {% for a in attacks %}
-      <tr>
-        <td style="white-space:nowrap;font-size:11px;color:var(--muted);">{{ a.timestamp|date:"d.m H:i:s" }}</td>
-        <td><span class="badge badge-{{ a.attack_type.code }}">{{ a.attack_type.code|upper }}</span></td>
-        <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ a.request.path }}">{{ a.request.path }}</td>
-        <td class="mono">{{ a.request.client_ip }}</td>
-        <td><span class="payload" title="{{ a.detected_payload }}">{{ a.detected_payload|truncatechars:45 }}</span></td>
-        <td>
-          <div class="sbar-wrap">
-            <div class="sbar"><div class="sbar-fill" style="width:{% widthratio a.confidence_score 1 100 %}%;background:{% if a.confidence_score >= 0.85 %}var(--red){% elif a.confidence_score >= 0.72 %}var(--yellow){% else %}var(--green){% endif %};"></div></div>
-            <span style="font-size:11px;color:var(--sub);white-space:nowrap;">{{ a.confidence_score|floatformat:2 }}</span>
-          </div>
-        </td>
-        <td style="font-size:11px;color:var(--muted);">{{ a.detection_method }}</td>
-      </tr>
-      {% empty %}<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px;">Атак не виявлено</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+    <div class="page-hdr">
+        <div><h1>⚠️ Виявлені атаки</h1>
+            <p style="font-size:16px;">Класифіковані загрози з оцінкою впевненості ML</p></div>
+        <form method="post" onsubmit="return confirm('Ви впевнені, що хочете очистити історію атак?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="clear">
+            <button type="submit" class="btn btn-danger" style="font-size:14px;">🗑 Очистити всі</button>
+        </form>
+    </div>
+    <div class="filters">
+        <a href="{% url 'attacks' %}" class="ftab {% if not selected %}active{% endif %}"
+           style="font-size:15px;">Всі</a>
+        {% for at in attack_types %}
+            <a href="{% url 'attacks' %}?type={{ at.code }}" class="ftab {% if selected == at.code %}active{% endif %}"
+               style="font-size:15px;">{{ at.name }}</a>
+        {% endfor %}
+    </div>
+    <div class="tbl-wrap">
+        <table style="font-size:14px;">
+            <thead>
+            <tr>
+                <th>Час</th>
+                <th>Тип</th>
+                <th>Шлях</th>
+                <th>IP</th>
+                <th>Payload</th>
+                <th>Впевненість</th>
+                <th>Метод</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for a in attacks %}
+                <tr>
+                    <td style="white-space:nowrap;color:var(--muted);">{{ a.timestamp|date:"d.m H:i:s" }}</td>
+                    <td><span class="badge badge-{{ a.attack_type.code }}"
+                              style="font-size:13px;">{{ a.attack_type.code|upper }}</span></td>
+                    <td class="mono"
+                        style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;"
+                        title="{{ a.request.path }}">{{ a.request.path }}</td>
+                    <td class="mono" style="font-size:14px;">{{ a.request.client_ip }}</td>
+                    <td><span class="payload" style="font-size:14px;"
+                              title="{{ a.detected_payload }}">{{ a.detected_payload|truncatechars:45 }}</span></td>
+                    <td>
+                        <div class="sbar-wrap">
+                            <div class="sbar">
+                                <div class="sbar-fill"
+                                     style="width:{% widthratio a.confidence_score 1 100 %}%;background:{% if a.confidence_score >= 0.85 %}var(--red){% elif a.confidence_score >= 0.72 %}var(--yellow){% else %}var(--green){% endif %};"></div>
+                            </div>
+                            <span style="color:var(--sub);white-space:nowrap;">{{ a.confidence_score|floatformat:2 }}</span>
+                        </div>
+                    </td>
+                    <td style="color:var(--muted);">{{ a.detection_method }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align:center;color:var(--muted);padding:28px;font-size:16px;">Атак не
+                        виявлено
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

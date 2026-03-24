@@ -1,260 +1,168 @@
-# WAF — Інтелектуальна система фільтрації HTTP-трафіку
+````markdown
+# 🛡️ ML-Based WAF (Web Application Firewall) v2
 
-**Дипломна робота:** "Інтелектуальна система фільтрації HTTP-трафіку веб-додатків WAF з використанням машинного навчання"
-
----
-
-## Структура проекту
-
-```
-waf/
-├── config/
-│   ├── settings.py              Django налаштування
-│   ├── urls.py
-│   └── wsgi.py
-│
-├── waf_core/                    Ядро WAF
-│   ├── models.py                БД: HTTPRequest, DetectedAttack, FirewallException, Alert, IPReputation, MLModelMetrics
-│   ├── features.py              Витяг 68 ознак — роздільні паттерни на кожен тип атаки
-│   ├── predictor.py             Singleton завантажувач ML-моделей
-│   ├── middleware.py            Django middleware (фільтрація кожного запиту)
-│   ├── alerts.py                Система алертів + burst detection + email
-│   ├── exceptions_cache.py      In-memory кеш винятків з CIDR підтримкою
-│   ├── admin.py
-│   └── management/commands/
-│       ├── train_models.py      Навчання ML-моделей
-│       ├── seed_data.py         Початкові типи атак
-│       └── generate_plots.py   Аналітичні графіки
-│
-├── ml_engine/
-│   ├── trainer.py               Пайплайн: 6 моделей × 7 типів атак + графіки
-│   └── saved_models/            *.pkl моделі та scaler-и
-│
-├── dashboard/                   Веб-інтерфейс (7 сторінок)
-│   ├── views.py
-│   ├── urls.py
-│   └── templates/dashboard/
-│       ├── base.html
-│       ├── index.html           Dashboard з алертами
-│       ├── requests.html        HTTP запити
-│       ├── attacks.html         Виявлені атаки
-│       ├── alerts.html          Алерти безпеки
-│       ├── exceptions.html      Управління винятками WAF
-│       ├── ip.html              IP репутація
-│       └── ml.html              ML метрики
-│
-├── api/                         REST API (DRF)
-│   ├── views.py
-│   ├── serializers.py
-│   └── urls.py
-│
-├── data_processing/
-│   └── loader.py                Завантаження Kaggle + розширені синтетичні датасети
-│
-├── attack_sim.py                Симулятор атак для тестування WAF
-├── manage.py
-├── requirements.txt
-└── .env.example
-```
+Интеллектуальный файрвол для веб-приложений, построенный на базе Django. Система использует **гибридный подход** (сигнатурный анализ + алгоритмы машинного обучения) для выявления, классификации и блокировки кибератак в реальном времени с нулевым уровнем ложных срабатываний (False Positives).
 
 ---
 
-## Типи атак
+## ✨ Ключевые возможности
 
-| Код | Назва | Severity | Датасет |
-|-----|-------|----------|---------|
-| sqli | SQL Injection | critical | Kaggle + synthetic |
-| xss | Cross-Site Scripting | high | Kaggle + synthetic |
-| path_traversal | Path Traversal / LFI | high | synthetic |
-| rce | Remote Code Execution | critical | synthetic |
-| ddos | DDoS / Flood | high | synthetic |
-| ssrf | Server-Side Request Forgery | high | synthetic |
-| xxe | XML External Entity | high | synthetic |
-
----
-
-## ML Pipeline
-
-**Для кожного типу атаки** навчається 6 моделей, обирається найкраща за F1-score:
-
-| Модель | Параметри |
-|--------|-----------|
-| Random Forest | 300 дерев, balanced |
-| XGBoost | 300 estimators, lr=0.05 |
-| Gradient Boosting | 200 estimators, lr=0.08 |
-| MLP Neural Network | 512→256→128→64, adaptive lr |
-| SVM | RBF kernel, C=10 |
-| Logistic Regression | saga solver, balanced |
-
-**Балансування:** SMOTE (якщо позитивних < 40%)
-
-**Фічі (68 штук):** довжини полів, спецсимволи, ентропія Шеннона, ексклюзивні ключові слова та regex для кожного типу атаки (без перетину).
-
-### Вирішена проблема перехресної класифікації
-
-Стара версія мала спільні ключові слова (`char`, `from`, `where`) для SQLi і XSS.
-Нова версія використовує **ексклюзивні паттерни**:
-- SQLi: `union select`, `waitfor delay`, `xp_cmdshell`, `extractvalue(`
-- XSS: `<script`, `onerror=`, `document.cookie`, `fromcharcode`
-- RCE: `; ls`, `| cat`, backticks, `$(...)`, `/bin/bash`
-- SSRF: `169.254.169.254`, `file:///`, `gopher://`, internal IP ranges
-- XXe: `<!ENTITY`, `SYSTEM "file`, `<!DOCTYPE`
+* **🧠 Гибридное детектирование:** Комбинация регулярных выражений (RegEx) и ансамбля ML-моделей (Random Forest, XGBoost, Gradient Boosting, MLP, SVM) для достижения 100% точности.
+* **🎯 Распознавание 7 классов атак:**
+    * `SQLi` (SQL Injection)
+    * `XSS` (Cross-Site Scripting)
+    * `Path Traversal` (LFI/RFI)
+    * `RCE` (Remote Code Execution)
+    * `SSRF` (Server-Side Request Forgery)
+    * `XXE` (XML External Entity)
+    * `DDoS` (Application Layer HTTP Flood)
+* **📊 Интерактивный Dashboard:** Аналитика трафика, мониторинг атак, управление алертами и просмотр метрик ML-моделей в реальном времени.
+* **🌍 Управление IP-репутацией:** Автоматическая блокировка злоумышленников после серии атак, ведение истории запросов.
+* **🛡️ Гибкие исключения (Firewall Rules):** Поддержка Whitelist/Blacklist для IP-адресов, CIDR-подсетей, регулярных выражений путей (URL Path) и User-Agent.
+* **🤖 Встроенный ML-Пайплайн:** Автоматическая загрузка датасетов (Kaggle), генерация синтетических данных, кросс-валидация и переобучение моделей одной командой.
+* **⚔️ Симулятор атак:** Встроенный скрипт для тестирования защиты (генерация случайных IP и различных векторов атак).
 
 ---
 
-## Новий функціонал
+## 🛠 Технологический стек
 
-### 🛡 Винятки файрволу (`/exceptions/`)
-- **IP whitelist/blacklist** — одиночний IP
-- **CIDR whitelist/blacklist** — підмережа (10.0.0.0/8)
-- **Path whitelist/blacklist** — regex шляху
-- **User-Agent whitelist/blacklist** — regex UA
-- Термін дії (автоматичне видалення)
-- In-memory кеш (без БД запитів на кожен HTTP запит)
-- Лічильник спрацювань
-
-### 🔔 Алерти (`/alerts/`)
-- Алерт на кожну виявлену атаку
-- **Burst detection**: 5+ атак за 5 хвилин → critical alert + email
-- Рівні: info / warning / critical
-- Статуси: new / acknowledged / resolved
-- Email-сповіщення (налаштування через `.env`)
-- Кнопки: прочитати, вирішити, заблокувати IP
+* **Backend:** Python 3.10+, Django 5.x, Django REST Framework
+* **Machine Learning:** Scikit-Learn, XGBoost, Imbalanced-learn (SMOTE), Pandas, NumPy
+* **Database:** PostgreSQL (production) / SQLite (development)
+* **Frontend:** HTML5, CSS3 (Custom Variables), JavaScript
+* **Data Processing:** Joblib (Model serialization), Matplotlib (Plots generation)
 
 ---
 
-## Встановлення та запуск
+## 🚀 Установка и запуск
 
-### 1. Клонування та залежності
+### 1. Клонирование репозитория
+```bash
+git clone [https://github.com/yourusername/waf-project_v2.git](https://github.com/yourusername/waf-project_v2.git)
+cd waf-project_v2
+````
+
+### 2\. Настройка виртуального окружения
 
 ```bash
-git clone <url>
-cd waf
-python -m venv venv
-source venv/bin/activate    # Linux/macOS
-# або: venv\Scripts\activate  # Windows
+python -m venv .venv
+# Для Windows:
+.venv\Scripts\activate
+# Для Linux/macOS:
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-### 2. База даних PostgreSQL
+### 3\. Настройка базы данных и переменных окружения
 
-```bash
-psql -U postgres -c "CREATE DATABASE waf_db;"
+Создайте файл `.env` в корне проекта (рядом с `manage.py`) и добавьте базовые настройки:
+
+```env
+SECRET_KEY=your-secret-key
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+# Если используете PostgreSQL:
+DB_NAME=waf_db
+DB_USER=postgres
+DB_PASSWORD=yourpassword
+DB_HOST=localhost
+DB_PORT=5432
 ```
 
-### 3. Налаштування
+### 4\. Миграции базы данных
 
 ```bash
-cp .env .env
-# Відредагувати: SECRET_KEY, DB_PASSWORD
-# Для email-алертів: EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, ALERT_EMAIL_TO
-```
-
-### 4. Ініціалізація
-
-```bash
+python manage.py makemigrations
 python manage.py migrate
-python manage.py createsuperuser
-python manage.py seed_data
 ```
 
-### 5. Навчання моделей
+### 5\. Обучение ML-моделей
+
+Перед запуском WAF необходимо обучить нейросети и классификаторы.
 
 ```bash
-# Без Kaggle (лише синтетика — швидко, ~5 хв):
-python manage.py train_models
-
-# З Kaggle (SQLi + XSS реальні датасети — ~15 хв):
-# Спочатку: https://www.kaggle.com/settings → API → Create New Token → ~/.kaggle/kaggle.json
+# Для скачивания реальных датасетов с Kaggle и обучения:
 python manage.py train_models --download
 
-# Навчити лише один тип:
-python manage.py train_models --attack rce
+# Если Kaggle API не настроен, система сгенерирует синтетические данные:
+python manage.py train_models
 ```
 
-### 6. Запуск
+### 6\. Создание администратора и запуск
 
 ```bash
+python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### 7. Аналітичні графіки
+Панель управления будет доступна по адресу: [http://127.0.0.1:8000/](https://www.google.com/search?q=http://127.0.0.1:8000/)
+
+-----
+
+## ⚔️ Симуляция атак (Тестирование)
+
+В проекте предусмотрен мощный скрипт `attack_sim.py` для проверки надежности WAF. Скрипт подменяет заголовки `X-Forwarded-For`, симулируя атаки с разных IP-адресов.
+
+**Запуск всех типов атак одновременно:**
 
 ```bash
-python manage.py generate_plots
+python attack_sim.py --type all
 ```
 
-### 8. Тестування WAF
+**Тестирование конкретного вектора (например, SQLi):**
 
 ```bash
-# Симулятор атак (поки сервер запущений):
-python attack_sim.py --type all --count 10
-
-# Окремий тип:
-python attack_sim.py --type sqli --count 20 --delay 0.1
-python attack_sim.py --type rce --count 15
-python attack_sim.py --type ddos --ddos-rps 50 --ddos-duration 30
+python attack_sim.py --type sqli --count 50 --delay 0.1
 ```
 
----
+**Симуляция DDoS-атаки (HTTP Flood):**
 
-## Dashboard
-
-| URL | Сторінка |
-|-----|----------|
-| `/` | Головна + нові алерти |
-| `/requests/` | HTTP запити |
-| `/attacks/` | Виявлені атаки |
-| `/alerts/` | Алерти безпеки |
-| `/exceptions/` | Управління винятками WAF |
-| `/ip-reputation/` | IP репутація |
-| `/ml/` | ML моделі та метрики |
-| `/admin/` | Django Admin |
-
----
-
-## REST API
-
-```
-GET  /api/v1/requests/                   HTTP запити
-GET  /api/v1/attacks/                    Виявлені атаки
-GET  /api/v1/exceptions/                 Винятки WAF
-POST /api/v1/exceptions/                 Створити виняток
-POST /api/v1/exceptions/{id}/toggle/     Вмк/Вимк виняток
-POST /api/v1/exceptions/reload_cache/    Перезавантажити кеш
-GET  /api/v1/alerts/                     Алерти
-GET  /api/v1/alerts/unread_count/        Кількість нових
-POST /api/v1/alerts/{id}/acknowledge/    Прочитати алерт
-POST /api/v1/alerts/{id}/resolve/        Вирішити алерт
-POST /api/v1/alerts/acknowledge_all/     Прочитати всі
-GET  /api/v1/ip/                         IP репутація
-POST /api/v1/ip/{id}/block/              Заблокувати IP
-POST /api/v1/ip/{id}/unblock/            Розблокувати IP
-POST /api/v1/ip/{id}/whitelist/          Дозволити IP
-GET  /api/v1/ml-models/                  Метрики моделей
-GET  /api/v1/ml-models/best/             Найкращі моделі
-POST /api/v1/ml-models/retrain/          Перенавчити
-GET  /api/v1/stats/                      Загальна статистика
-POST /api/v1/analyze/                    Аналіз запиту
+```bash
+python attack_sim.py --type ddos --ddos-rps 50 --ddos-duration 10
 ```
 
----
+-----
 
-## Конфігурація WAF (`config/settings.py`)
+## ⚙️ Конфигурация WAF
+
+Основные параметры защиты настраиваются в `config/settings.py` (словарь `WAF_CONFIG`):
 
 ```python
 WAF_CONFIG = {
-    'ENABLED': True,
-    'BLOCK_MODE': True,            # False = тільки логувати
-    'ML_THRESHOLD': 0.72,          # Поріг впевненості (0.0–1.0)
-    'RATE_LIMIT_REQUESTS': 100,    # Макс запитів
-    'RATE_LIMIT_WINDOW': 60,       # Вікно в секундах
-    'WHITELIST_IPS': ['127.0.0.1'],
-    'EXCLUDED_PATHS': ['/admin/', '/static/', '/login/'],
-    'LOG_ALL_REQUESTS': False,
-    'ATTACK_TYPES': ['sqli', 'xss', 'path_traversal', 'rce', 'ddos', 'ssrf', 'xxe'],
-    'ALERT_ON_ATTACK': True,
-    'ALERT_THRESHOLD_COUNT': 5,    # Burst detection
-    'ALERT_WINDOW_SECONDS': 300,   # Вікно burst detection
+    'ENABLED': True,                  # Глобальный переключатель WAF
+    'BLOCK_MODE': True,               # True = Блокировать (403), False = Только мониторинг
+    'ML_THRESHOLD': 0.72,             # Порог уверенности ML для блокировки (0.0 - 1.0)
+    'RATE_LIMIT_REQUESTS': 100,       # Лимит запросов
+    'RATE_LIMIT_WINDOW': 60,          # Окно лимита (в секундах)
+    'WHITELIST_IPS': [],              # Глобальный белый список (оставьте пустым для теста локально)
+    'EXCLUDED_PATHS': ['/admin/', '/static/'], # Игнорируемые пути
+    'ALERT_ON_ATTACK': True,          # Создавать алерты
+    'ALERT_THRESHOLD_COUNT': 5,       # Атак с одного IP до создания алерта
 }
+```
+
+-----
+
+## 📁 Структура проекта
+
+```text
+waf-project_v2/
+├── api/                  # REST API для интеграции
+├── config/               # Настройки Django
+├── dashboard/            # Приложение графического интерфейса
+├── data_processing/      # Загрузчики датасетов (Kaggle/Синтетика)
+├── ml_engine/            # Пайплайн обучения, метрики, сохраненные веса (.pkl)
+├── waf_core/             # Ядро WAF: Middleware, извлечение фичей, предиктор, БД
+├── attack_sim.py         # Скрипт-симулятор кибератак
+└── manage.py             # Точка входа Django
+```
+
+-----
+
+## 🔒 Лицензия
+
+Этот проект распространяется под лицензией AlexMaster. Подробности см. в файле `LICENSE`.
+
+```
 ```

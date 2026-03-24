@@ -3,119 +3,145 @@
 {% block nav_exc %}active{% endblock %}
 
 {% block content %}
-<div class="page-hdr">
-  <div>
-    <h1>🛡 Винятки файрволу</h1>
-    <p>Управління whitelist/blacklist по IP, підмережах, шляхах та User-Agent</p>
-  </div>
-</div>
-
-<div class="cols2" style="margin-bottom:22px;">
-  <div class="card">
-    <div class="card-title">Додати виняток</div>
-    <form method="post" action="{% url 'exceptions' %}">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="create">
-      <div class="form-group">
-        <label>Тип винятку</label>
-        <select name="exception_type" class="form-control" required>
-          {% for val, label in type_choices %}
-          <option value="{{ val }}">{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Значення</label>
-        <input type="text" name="value" class="form-control" placeholder="192.168.1.1 або /api/health або 10.0.0.0/24" required>
-      </div>
-      <div class="form-group">
-        <label>Опис (необовʼязково)</label>
-        <input type="text" name="description" class="form-control" placeholder="Чому цей виняток потрібен">
-      </div>
-      <div class="form-group">
-        <label>Термін дії (необовʼязково)</label>
-        <input type="datetime-local" name="expires_at" class="form-control">
-      </div>
-      <button type="submit" class="btn btn-primary">➕ Додати виняток</button>
-    </form>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Довідка по типах</div>
-    <div style="font-size:12px;color:var(--sub);line-height:1.8;">
-      <div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:600;">ip_whitelist</span> — дозволити IP повністю, WAF не перевіряє<br><span style="color:var(--muted);">Приклад: 192.168.1.100</span></div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-weight:600;">ip_blacklist</span> — заблокувати IP одразу без ML<br><span style="color:var(--muted);">Приклад: 10.0.0.50</span></div>
-      <div style="margin-bottom:8px;"><span style="color:var(--cyan);font-weight:600;">cidr_whitelist / cidr_blacklist</span> — підмережа CIDR<br><span style="color:var(--muted);">Приклад: 172.16.0.0/12</span></div>
-      <div style="margin-bottom:8px;"><span style="color:var(--blue);font-weight:600;">path_whitelist</span> — regex шляху (пропустити WAF)<br><span style="color:var(--muted);">Приклад: ^/api/health$ або /static/</span></div>
-      <div style="margin-bottom:8px;"><span style="color:var(--yellow);font-weight:600;">path_blacklist</span> — regex шляху (блокувати завжди)<br><span style="color:var(--muted);">Приклад: /admin/login або \.php$</span></div>
-      <div><span style="color:var(--purple);font-weight:600;">ua_whitelist / ua_blacklist</span> — regex User-Agent<br><span style="color:var(--muted);">Приклад: Googlebot або python-requests</span></div>
+    <div class="page-hdr">
+        <div>
+            <h1>🛡 Винятки файрволу</h1>
+            <p style="font-size:16px;">Управління whitelist/blacklist по IP, підмережах, шляхах та User-Agent</p>
+        </div>
     </div>
-  </div>
-</div>
 
-<div class="filters">
-  <a href="{% url 'exceptions' %}" class="ftab {% if not exc_filter %}active{% endif %}">Всі</a>
-  {% for val, label in type_choices %}
-  <a href="{% url 'exceptions' %}?type={{ val }}" class="ftab {% if exc_filter == val %}active{% endif %}">{{ label }}</a>
-  {% endfor %}
-</div>
+    <div class="cols2" style="margin-bottom:22px;">
+        <div class="card">
+            <div class="card-title">Додати виняток</div>
+            <form method="post" action="{% url 'exceptions' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create">
+                <div class="form-group">
+                    <label>Тип винятку</label>
+                    <select name="exception_type" class="form-control" required>
+                        {% for val, label in type_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Значення</label>
+                    <input type="text" name="value" class="form-control"
+                           placeholder="192.168.1.1 або /api/health або 10.0.0.0/24" required>
+                </div>
+                <div class="form-group">
+                    <label>Опис (необовʼязково)</label>
+                    <input type="text" name="description" class="form-control" placeholder="Чому цей виняток потрібен">
+                </div>
+                <div class="form-group">
+                    <label>Термін дії (необовʼязково)</label>
+                    <input type="datetime-local" name="expires_at" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">➕ Додати виняток</button>
+            </form>
+        </div>
 
-<div class="tbl-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>Тип</th><th>Значення</th><th>Опис</th>
-        <th>Спрацювань</th><th>Активний</th><th>Термін дії</th>
-        <th>Створено</th><th>Дії</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for exc in exceptions %}
-      <tr style="{% if exc.is_expired %}opacity:.5;{% endif %}">
-        <td>
-          {% if 'whitelist' in exc.exception_type %}
-            <span class="badge badge-ok">{{ exc.get_exception_type_display }}</span>
-          {% else %}
-            <span class="badge badge-blocked">{{ exc.get_exception_type_display }}</span>
-          {% endif %}
-        </td>
-        <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ exc.value }}">{{ exc.value }}</td>
-        <td style="font-size:12px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ exc.description|default:"—" }}</td>
-        <td style="color:var(--sub);">{{ exc.hit_count }}</td>
-        <td>
-          {% if exc.is_active and not exc.is_expired %}
-            <span style="color:var(--green);font-size:12px;">● Активний</span>
-          {% elif exc.is_expired %}
-            <span style="color:var(--muted);font-size:12px;">⏱ Закінчився</span>
-          {% else %}
-            <span style="color:var(--muted);font-size:12px;">○ Вимкнений</span>
-          {% endif %}
-        </td>
-        <td style="font-size:11px;color:var(--muted);">
-          {% if exc.expires_at %}{{ exc.expires_at|date:"d.m.Y H:i" }}{% else %}—{% endif %}
-        </td>
-        <td style="font-size:11px;color:var(--muted);">{{ exc.created_at|date:"d.m.Y" }}</td>
-        <td>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;">
-            <form method="post" style="display:inline;">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="toggle">
-              <input type="hidden" name="exc_id" value="{{ exc.id }}">
-              <button type="submit" class="btn btn-warning btn-sm">{% if exc.is_active %}Вимкнути{% else %}Увімкнути{% endif %}</button>
-            </form>
-            <form method="post" style="display:inline;" onsubmit="return confirm('Видалити виняток?')">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="delete">
-              <input type="hidden" name="exc_id" value="{{ exc.id }}">
-              <button type="submit" class="btn btn-danger btn-sm">Видалити</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px;">Винятків немає. Додайте перший виняток вище.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+        <div class="card">
+            <div class="card-title">Довідка по типах</div>
+            <div style="font-size:14px;color:var(--sub);line-height:1.8;">
+                <div style="margin-bottom:8px;"><span style="color:var(--green);font-weight:600;">ip_whitelist</span> —
+                    дозволити IP повністю, WAF не перевіряє<br><span
+                            style="color:var(--muted);">Приклад: 192.168.1.100</span></div>
+                <div style="margin-bottom:8px;"><span style="color:var(--red);font-weight:600;">ip_blacklist</span> —
+                    заблокувати IP одразу без ML<br><span style="color:var(--muted);">Приклад: 10.0.0.50</span></div>
+                <div style="margin-bottom:8px;"><span style="color:var(--cyan);font-weight:600;">cidr_whitelist / cidr_blacklist</span>
+                    — підмережа CIDR<br><span style="color:var(--muted);">Приклад: 172.16.0.0/12</span></div>
+                <div style="margin-bottom:8px;"><span style="color:var(--blue);font-weight:600;">path_whitelist</span> —
+                    regex шляху (пропустити WAF)<br><span style="color:var(--muted);">Приклад: ^/api/health$ або /static/</span>
+                </div>
+                <div style="margin-bottom:8px;"><span style="color:var(--yellow);font-weight:600;">path_blacklist</span>
+                    — regex шляху (блокувати завжди)<br><span style="color:var(--muted);">Приклад: /admin/login або \.php$</span>
+                </div>
+                <div><span style="color:var(--purple);font-weight:600;">ua_whitelist / ua_blacklist</span> — regex
+                    User-Agent<br><span style="color:var(--muted);">Приклад: Googlebot або python-requests</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="filters">
+        <a href="{% url 'exceptions' %}" class="ftab {% if not exc_filter %}active{% endif %}">Всі</a>
+        {% for val, label in type_choices %}
+            <a href="{% url 'exceptions' %}?type={{ val }}"
+               class="ftab {% if exc_filter == val %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="tbl-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>Тип</th>
+                <th>Значення</th>
+                <th>Опис</th>
+                <th>Спрацювань</th>
+                <th>Активний</th>
+                <th>Термін дії</th>
+                <th>Створено</th>
+                <th>Дії</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for exc in exceptions %}
+                <tr style="{% if exc.is_expired %}opacity:.5;{% endif %}">
+                    <td>
+                        {% if 'whitelist' in exc.exception_type %}
+                            <span class="badge badge-ok"
+                                  style="font-size:13px;">{{ exc.get_exception_type_display }}</span>
+                        {% else %}
+                            <span class="badge badge-blocked"
+                                  style="font-size:13px;">{{ exc.get_exception_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="mono"
+                        style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;"
+                        title="{{ exc.value }}">{{ exc.value }}</td>
+                    <td style="font-size:14px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ exc.description|default:"—" }}</td>
+                    <td style="color:var(--sub);font-size:15px;">{{ exc.hit_count }}</td>
+                    <td>
+                        {% if exc.is_active and not exc.is_expired %}
+                            <span style="color:var(--green);font-size:14px;">● Активний</span>
+                        {% elif exc.is_expired %}
+                            <span style="color:var(--muted);font-size:14px;">⏱ Закінчився</span>
+                        {% else %}
+                            <span style="color:var(--muted);font-size:14px;">○ Вимкнений</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:13px;color:var(--muted);">
+                        {% if exc.expires_at %}{{ exc.expires_at|date:"d.m.Y H:i" }}{% else %}—{% endif %}
+                    </td>
+                    <td style="font-size:13px;color:var(--muted);">{{ exc.created_at|date:"d.m.Y" }}</td>
+                    <td>
+                        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="toggle">
+                                <input type="hidden" name="exc_id" value="{{ exc.id }}">
+                                <button type="submit" class="btn btn-warning btn-sm" style="font-size:13px;">
+                                    {% if exc.is_active %}Вимкнути{% else %}Увімкнути{% endif %}</button>
+                            </form>
+                            <form method="post" style="display:inline;" onsubmit="return confirm('Видалити виняток?')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="exc_id" value="{{ exc.id }}">
+                                <button type="submit" class="btn btn-danger btn-sm" style="font-size:13px;">Видалити
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center;color:var(--muted);padding:28px;font-size:16px;">Винятків
+                        немає. Додайте перший виняток вище.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

@@ -32,6 +32,12 @@ def index(request):
 
 @login_required
 def requests_view(request):
+    if request.method == 'POST':
+        if request.POST.get('action') == 'clear':
+            HTTPRequest.objects.all().delete()
+            messages.success(request, 'Всі HTTP запити очищено.')
+            return redirect(request.path)
+
     qs = HTTPRequest.objects.order_by('-timestamp')
     f = request.GET.get('is_blocked')
     if f == 'true':
@@ -43,6 +49,12 @@ def requests_view(request):
 
 @login_required
 def attacks_view(request):
+    if request.method == 'POST':
+        if request.POST.get('action') == 'clear':
+            DetectedAttack.objects.all().delete()
+            messages.success(request, 'Всі атаки очищено.')
+            return redirect(request.path)
+
     qs = DetectedAttack.objects.select_related('request', 'attack_type').order_by('-timestamp')
     sel = request.GET.get('type')
     if sel:
@@ -56,6 +68,12 @@ def attacks_view(request):
 
 @login_required
 def ml_view(request):
+    if request.method == 'POST':
+        if request.POST.get('action') == 'clear':
+            MLModelMetrics.objects.all().delete()
+            messages.success(request, 'Метрики моделей очищено.')
+            return redirect(request.path)
+
     return render(request, 'dashboard/ml.html', {
         'metrics': MLModelMetrics.objects.all().order_by('attack_type', '-f1_score'),
     })
@@ -63,6 +81,12 @@ def ml_view(request):
 
 @login_required
 def ip_view(request):
+    if request.method == 'POST':
+        if request.POST.get('action') == 'clear':
+            IPReputation.objects.all().delete()
+            messages.success(request, 'IP репутацію очищено.')
+            return redirect(request.path)
+
     return render(request, 'dashboard/ip.html', {
         'ips': IPReputation.objects.order_by('-attack_count'),
     })
@@ -72,7 +96,15 @@ def ip_view(request):
 def exceptions_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
-        if action == 'create':
+
+        if action == 'clear':
+            FirewallException.objects.all().delete()
+            from waf_core import exceptions_cache
+            exceptions_cache.reload()
+            messages.success(request, 'Всі винятки очищено.')
+            return redirect(request.path)
+
+        elif action == 'create':
             exc_type = request.POST.get('exception_type')
             value = request.POST.get('value', '').strip()
             desc = request.POST.get('description', '').strip()
@@ -135,7 +167,13 @@ def alerts_view(request):
     if request.method == 'POST':
         action = request.POST.get('action')
         alert_id = request.POST.get('alert_id')
-        if action == 'acknowledge' and alert_id:
+
+        if action == 'clear':
+            Alert.objects.all().delete()
+            messages.success(request, 'Всі алерти очищено.')
+            return redirect(request.path)
+
+        elif action == 'acknowledge' and alert_id:
             alert = get_object_or_404(Alert, id=alert_id)
             alert.status = 'acknowledged'
             alert.acknowledged_at = timezone.now()

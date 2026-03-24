@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -38,7 +39,7 @@ CARD = '#161b27'
 GRID = '#1e2738'
 TEXT = '#94a3b8'
 BLUE = '#3b82f6'
-RED  = '#ef4444'
+RED = '#ef4444'
 GREEN = '#22c55e'
 YELLOW = '#f59e0b'
 PURPLE = '#8b5cf6'
@@ -99,11 +100,11 @@ def build_models():
 
 def _metrics(y_true, y_pred, y_proba):
     return {
-        'accuracy':  float(accuracy_score(y_true, y_pred)),
+        'accuracy': float(accuracy_score(y_true, y_pred)),
         'precision': float(precision_score(y_true, y_pred, zero_division=0)),
-        'recall':    float(recall_score(y_true, y_pred, zero_division=0)),
-        'f1':        float(f1_score(y_true, y_pred, zero_division=0)),
-        'auc_roc':   float(roc_auc_score(y_true, y_proba)) if len(np.unique(y_true)) > 1 else 0.0,
+        'recall': float(recall_score(y_true, y_pred, zero_division=0)),
+        'f1': float(f1_score(y_true, y_pred, zero_division=0)),
+        'auc_roc': float(roc_auc_score(y_true, y_proba)) if len(np.unique(y_true)) > 1 else 0.0,
     }
 
 
@@ -208,8 +209,6 @@ def plot_all_comparison(all_metrics):
 
 
 def train_one(attack_type, X, y):
-    logger.info(f'[{attack_type}] Samples={len(X)}, Positives={y.sum()}, Negatives={len(y)-y.sum()}')
-
     X_tr, X_te, y_tr, y_te = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
@@ -223,7 +222,6 @@ def train_one(attack_type, X, y):
         try:
             sm = SMOTE(random_state=42, k_neighbors=k)
             X_tr_s, y_tr = sm.fit_resample(X_tr_s, y_tr)
-            logger.info(f'[{attack_type}] After SMOTE: {len(X_tr_s)}')
         except Exception as e:
             logger.warning(f'[{attack_type}] SMOTE skipped: {e}')
 
@@ -238,7 +236,8 @@ def train_one(attack_type, X, y):
                       if hasattr(model, 'predict_proba') else y_pred.astype(float))
             m = _metrics(y_te, y_pred, y_prob)
             results[name] = {'m': m, 'y_true': y_te, 'y_pred': y_pred, 'y_proba': y_prob, 'model': model}
-            logger.info(f'  [{attack_type}] {name}: F1={m["f1"]:.4f} AUC={m["auc_roc"]:.4f} P={m["precision"]:.4f} R={m["recall"]:.4f}')
+            logger.info(
+                f'  [{attack_type}] {name}: F1={m["f1"]:.4f} AUC={m["auc_roc"]:.4f} P={m["precision"]:.4f} R={m["recall"]:.4f}')
             if m['f1'] > best_f1:
                 best_f1, best_name, best_model = m['f1'], name, model
         except Exception as e:
@@ -256,7 +255,6 @@ def train_one(attack_type, X, y):
         }
         with open(MODELS_DIR / f'{attack_type}_meta.json', 'w') as f:
             json.dump(meta, f, indent=2)
-        logger.info(f'[{attack_type}] BEST: {best_name} F1={best_f1:.4f}')
 
     return results
 
@@ -304,19 +302,56 @@ def run_pipeline():
 
     all_results = {}
     all_metrics = {}
+    all_data = {}
 
     for attack_type, loader_fn in LOADERS.items():
         try:
             df = loader_fn(DATASETS_DIR)
-            logger.info(f'[{attack_type}] Loaded {len(df)} rows, positives={df["label"].sum()}')
             X = df_to_features(df)
             y = df['label'].values.astype(int)
+            all_data[attack_type] = {'X': X, 'y': y}
+            logger.info(f'[{attack_type}] Extracted {len(X)} features (pos={y.sum()})')
+        except Exception as e:
+            logger.error(f'[{attack_type}] Feature extraction failed: {e}')
 
-            if y.sum() == 0 or (len(y) - y.sum()) == 0:
+    for attack_type in all_data.keys():
+        try:
+            X_main = all_data[attack_type]['X']
+            y_main = all_data[attack_type]['y']
+
+            X_others = []
+            for other_type, data in all_data.items():
+                if other_type != attack_type:
+                    mask = data['y'] == 1
+                    X_pos = data['X'][mask]
+                    if len(X_pos) > 1000:
+                        np.random.seed(42)
+                        idx = np.random.choice(len(X_pos), 1000, replace=False)
+                        X_pos = X_pos[idx]
+                    X_others.append(X_pos)
+
+            if X_others:
+                X_other_combined = np.vstack(X_others)
+                y_other_combined = np.zeros(len(X_other_combined), dtype=int)
+
+                X_final = np.vstack([X_main, X_other_combined])
+                y_final = np.concatenate([y_main, y_other_combined])
+            else:
+                X_final = X_main
+                y_final = y_main
+
+            np.random.seed(42)
+            shuff_idx = np.random.permutation(len(y_final))
+            X_final = X_final[shuff_idx]
+            y_final = y_final[shuff_idx]
+
+            if y_final.sum() == 0 or (len(y_final) - y_final.sum()) == 0:
                 logger.warning(f'[{attack_type}] Skipping — all one class')
                 continue
 
-            results = train_one(attack_type, X, y)
+            logger.info(
+                f'[{attack_type}] Cross-trained on {len(X_final)} samples (pos={y_final.sum()}, neg={len(y_final) - y_final.sum()})')
+            results = train_one(attack_type, X_final, y_final)
             all_results[attack_type] = results
 
             plot_roc_pr(results, attack_type)
@@ -349,5 +384,6 @@ if __name__ == '__main__':
     sys.path.insert(0, str(BASE_DIR))
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
     import django
+
     django.setup()
     run_pipeline()

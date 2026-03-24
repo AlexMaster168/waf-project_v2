@@ -17,7 +17,7 @@ class Command(BaseCommand):
             self._download(options['dataset'])
 
         try:
-            from ml_engine.trainer import run_pipeline, LOADERS
+            from ml_engine.trainer import run_pipeline
             if options['attack'] != 'all':
                 from ml_engine.trainer import train_one, save_metrics_to_db, DATASETS_DIR
                 from data_processing.loader import LOADERS as L, df_to_features
@@ -46,7 +46,8 @@ class Command(BaseCommand):
         for k in keys:
             self.stdout.write(f'  Downloading {k}...')
             ok = download(k, settings.DATASETS_DIR / k)
-            self.stdout.write(self.style.SUCCESS(f'  OK: {k}') if ok else self.style.WARNING(f'  FAIL (will use synthetic): {k}'))
+            self.stdout.write(
+                self.style.SUCCESS(f'  OK: {k}') if ok else self.style.WARNING(f'  FAIL (will use synthetic): {k}'))
 
     def _print_results(self, results):
         self.stdout.write('\n' + self.style.SUCCESS('Results:'))
